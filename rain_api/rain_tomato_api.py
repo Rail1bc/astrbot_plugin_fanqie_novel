@@ -5,8 +5,6 @@ import time
 import logging
 from urllib.parse import urlencode
 
-from .book import Book
-
 logger = logging.getLogger(__name__)
 
 class RainTomatoAPI:
@@ -36,11 +34,10 @@ class RainTomatoAPI:
         })
 
     # 将搜索 / 书籍信息 / 目录 / 章节作为类方法
-    def search(self, keywords: str, page: int = 0) -> List[Book]:
+    def search(self, keywords: str, page: int = 0) -> List:
         params = {'type': 1, 'keywords': keywords, 'page': page}
         search_result = self._get(params)
-        data_list = self._get_search_item(search_result)
-        return Book.book_list_from_api_dict(data_list)
+        return self._get_search_item(search_result)
 
 
     def book_info(self, bookid: str):

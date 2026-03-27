@@ -2,6 +2,7 @@ from astrbot.api.event import filter, AstrMessageEvent, MessageEventResult
 from astrbot.api.star import Context, Star, register
 from astrbot.api import logger
 
+from .rain_api.book import Book
 from .rain_api.rain_tomato_api import RainTomatoAPI
 
 
@@ -25,7 +26,7 @@ class FanqieNovel(Star):
         args = message_str.split()
         keywords = args[0]
         page = int(args[1]) if len(args) > 1 else 0
-        list = self.api.search(keywords=keywords, page=page)
+        list = Book.book_list_from_api_dict(self.api.search(keywords=keywords, page=page))
         str = "搜索结果：\n----------\n" + "\n----------\n".join([f"{i+1}. {book.book_info_to_str()}" for i, book in enumerate(list)])
         yield event.plain_result(str)
 
