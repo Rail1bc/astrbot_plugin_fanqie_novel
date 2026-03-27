@@ -24,26 +24,17 @@ class FanqieNovel(Star):
             logger.debug("api 初始化完成")
             self.api = RainTomatoAPI(apikey=apikey,base_url=base_url,)
 
-    @filter.command("测试")
-    async def test(self, event: AstrMessageEvent):
-        yield event.plain_result("测试成功" + event.message_str)
-        yield event.plain_result(event.message_str.split()[0])
-
-    @filter.command("test")
-    async def test1(self, event: AstrMessageEvent):
-        yield event.plain_result("测试成功" + event.message_str)
-        yield event.plain_result(event.message_str.split()[0])
-
     @filter.command("搜书")
     async def novel_search(self, event: AstrMessageEvent):
         """根据关键词搜索小说 /搜书 <关键词> [页码|0]"""
         if not self.api_enabled():
             yield event.plain_result("api失效，无法更新、获取新的书籍信息。")
+            return
 
         message_str = event.message_str
         args = message_str.split()
-        keywords = args[0]
-        page = int(args[1]) if len(args) > 1 else 0
+        keywords = args[1]
+        page = int(args[2]) if len(args) > 1 else 0
         list = Book.book_list_from_dict(self.api.search(keywords=keywords, page=page))
         str = ("搜索结果：\n----------\n" +
                "\n----------\n".join([f"{i+1}. {book.book_info_to_str()}" for i, book in enumerate(list)]))
