@@ -44,7 +44,7 @@ class FanqieNovel(Star):
         """可选择实现异步的插件销毁方法，当插件被卸载/停用时会调用。"""
 
     def api_enabled(self):
-        if self.api is None or self.api.enable is False:
+        if (self.api is None) or (self.api.enable is False):
             return False
         else:
             return True
