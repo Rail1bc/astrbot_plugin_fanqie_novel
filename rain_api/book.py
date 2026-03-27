@@ -20,7 +20,7 @@ class BookInfo:
     raw: Dict[str, Any] = field(default_factory=dict)   # 原始数据
 
     @classmethod
-    def from_dict(cls, data: Dict[str: Any]) -> "BookInfo":
+    def from_dict(cls, data: Dict[str, Any]) -> "BookInfo":
         """从 API 返回的字典构造 BookInfo，尽量容错并解析常见格式。"""
         if data is None:
             raise ValueError("data is required")
