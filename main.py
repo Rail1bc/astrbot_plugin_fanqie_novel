@@ -21,17 +21,20 @@ class FanqieNovel(Star):
         if not apikey or not base_url:
             logger.warning("没有 api key 或 书源地址，无法更新、获取新的书籍信息。")
         else:
+            logger.debug("api 初始化完成")
             self.api = RainTomatoAPI(apikey=apikey,base_url=base_url,)
 
     @filter.command("测试")
     async  def test(self, event: AstrMessageEvent):
         event.plain_result("测试成功" + event.message_str)
         event.plain_result(event.message_str.split()[0])
+        return
 
     @filter.command("test")
     async  def test(self, event: AstrMessageEvent):
         event.plain_result("测试成功" + event.message_str)
         event.plain_result(event.message_str.split()[0])
+        return
 
     @filter.command("搜书")
     async def novel_search(self, event: AstrMessageEvent):
@@ -48,6 +51,7 @@ class FanqieNovel(Star):
         str = ("搜索结果：\n----------\n" +
                "\n----------\n".join([f"{i+1}. {book.book_info_to_str()}" for i, book in enumerate(list)]))
         yield event.plain_result(str)
+        return
 
     async def terminate(self):
         """可选择实现异步的插件销毁方法，当插件被卸载/停用时会调用。"""
