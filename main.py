@@ -26,22 +26,19 @@ class FanqieNovel(Star):
 
     @filter.command("测试")
     async def test(self, event: AstrMessageEvent):
-        event.plain_result("测试成功" + event.message_str)
-        event.plain_result(event.message_str.split()[0])
-        return
+        yield event.plain_result("测试成功" + event.message_str)
+        yield event.plain_result(event.message_str.split()[0])
 
     @filter.command("test")
     async def test1(self, event: AstrMessageEvent):
-        event.plain_result("测试成功" + event.message_str)
-        event.plain_result(event.message_str.split()[0])
-        return
+        yield event.plain_result("测试成功" + event.message_str)
+        yield event.plain_result(event.message_str.split()[0])
 
     @filter.command("搜书")
     async def novel_search(self, event: AstrMessageEvent):
         """根据关键词搜索小说 /搜书 <关键词> [页码|0]"""
         if not self.api_enabled():
-            event.plain_result("api失效，无法更新、获取新的书籍信息。")
-            return
+            yield event.plain_result("api失效，无法更新、获取新的书籍信息。")
 
         message_str = event.message_str
         args = message_str.split()
@@ -51,7 +48,6 @@ class FanqieNovel(Star):
         str = ("搜索结果：\n----------\n" +
                "\n----------\n".join([f"{i+1}. {book.book_info_to_str()}" for i, book in enumerate(list)]))
         yield event.plain_result(str)
-        return
 
     async def terminate(self):
         """可选择实现异步的插件销毁方法，当插件被卸载/停用时会调用。"""
