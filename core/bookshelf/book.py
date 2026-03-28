@@ -72,6 +72,39 @@ class ChapterInfo:
             raw=data,
         )
 
+@dataclass
+class ContentInfo:
+    item_id: str
+    version: str
+    title: str
+    content: str
+    raw: Dict[str, Any] = field(default_factory=dict)
+
+    @classmethod
+    def from_api_dict(cls,chapter: ChapterInfo, data: dict,) -> "ContentInfo":
+        title = data.get("title")
+        content = data.get("content")
+        return cls(
+            item_id=chapter.item_id,
+            version=chapter.version,
+            title=title,
+            content=content,
+            raw=data,
+        )
+    @classmethod
+    def from_db_dict(cls, data: dict) -> "ContentInfo":
+        item_id = data.get("item_id")
+        version = data.get("version")
+        title = data.get("title")
+        content = data.get("content")
+        return cls(
+            item_id=item_id,
+            version=version,
+            title=title,
+            content=content,
+            raw=data,
+        )
+
 class Book:
     """Book 持有 BookInfo；未来可挂载章节、进度、缓存等行为。
 
@@ -81,6 +114,7 @@ class Book:
     def __init__(self, info: BookInfo):
         self.info = info
         self.chapter_list: Optional[list[ChapterInfo]] = None
+        self.content_list: Optional[list[ContentInfo]] = None
 
     def __repr__(self) -> str:
         return f"<Book id={self.info.book_id!r} name={self.info.book_name!r} author={self.info.author!r}>"
@@ -117,24 +151,56 @@ class Book:
 
     async def update(self):
         """更新书籍数据"""
-        await self.update_book_info()
-        await self.update_chapter_list()
+        result = []
+        result.append(await self.update_book_info())
+        result.append(await self.update_chapter_list())
+        result.append(await self.update_content_list())
+        return result
 
-    async def update_book_info(self):
+    async def update_book_info(self) -> str:
         """更新书籍信息"""
         api = await RainTomatoAPI.get_instance()
         data = await api.book_info(self.info.book_id)
         if data:
             self.info = BookInfo.from_dict(data)
+            return f"\n《{self.info.book_name}》基础信息拉取成功"
+        else:
+            return f"\n拉取《{self.info.book_name}》基础信息失败"
 
-    async def update_chapter_list(self):
+    async def update_chapter_list(self) -> str:
         """通过 bookid 获取最新章节数据 并更新书籍章节列表"""
         api = await RainTomatoAPI.get_instance()
         item_list = await api.toc(self.info.book_id)
+        if item_list is None:
+            return f"\n拉取《{self.info.book_name}》章节列表失败"
         chapter_list:list[ChapterInfo] = []
         for data in item_list:
             chapter_list.append(ChapterInfo.from_api_dict(data))
         self.chapter_list = chapter_list
+        return f"\n《{self.info.book_name}》章节列表拉取成功"
+
+    async def update_content_list(self) -> str:
+        """通过章节列表对比，"""
+        result = None
+        if len(self.chapter_list) > len(self.content_list):
+            idx = len(self.content_list)
+            for i in range(idx, len(self.chapter_list)):
+                chapter = self.chapter_list[i]
+                api = await RainTomatoAPI.get_instance()
+                data = await api.chapter(chapter.item_id)
+                if data is None:
+                    return f"\n拉取《{self.info.book_name}》 第 {idx} 章, {chapter.title} 失败"
+                self.content_list.append(ContentInfo.from_api_dict(chapter, data))
+        for i in range(len(self.content_list)):
+            chapter = self.chapter_list[i]
+            content = self.content_list[i]
+            if chapter.version != content.version:
+                api = await RainTomatoAPI.get_instance()
+                data = await api.chapter(chapter.item_id)
+                if data is None:
+                    return f"\n拉取《{self.info.book_name}》 第 {idx} 章, {chapter.title} 失败"
+                self.content_list[i] = ContentInfo.from_api_dict(chapter, data)
+        return f"\n《{self.info.book_name}》章节正文拉取成功"
 
     # ---------- 实例方法 ---------------
 

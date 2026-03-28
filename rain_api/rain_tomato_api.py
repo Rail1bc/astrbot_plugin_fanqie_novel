@@ -175,12 +175,11 @@ class RainTomatoAPI:
             return data.get("data", {}).get("item_data_list")
         return None
 
-    async def chapter(self, itemid: str, tone: Optional[Dict[str, Any]] = None) -> Optional[Dict[str, Any]]:
+    async def chapter(self, itemid: str) -> Optional[Dict[str, Any]]:
         """
         获取章节内容。
 
         :param itemid: 章节ID
-        :param tone: 可选音调参数（原接口预留）
         :return: 章节内容字典，失败返回None
         """
         params = {"type": 4, "itemid": itemid}

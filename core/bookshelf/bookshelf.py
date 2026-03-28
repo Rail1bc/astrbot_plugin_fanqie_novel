@@ -1,4 +1,4 @@
-from .book import Book
+from .book import Book, ChapterInfo
 from .bookshelfDB import BookshelfDB
 
 
@@ -37,17 +37,20 @@ class BookShelf:
         """
         if book_id is None:
             books = self.DB.get_all_books()
+            result = []
             for book in books:
-                await book.update()
+                result.append(await book.update())
                 self.DB.sync_book(book)
                 self.DB.sync_chapters(book)
-            return "已更新书架全部书籍信息"
+                self.DB.sync_content(book)
+            return f"已更新书架全部书籍基础信息、章节列表\n更新情况：\n{result}"
         try:
             book = self.DB.get_book(book_id)
-            await book.update()
+            result = await book.update()
             self.DB.sync_book(book)
             self.DB.sync_chapters(book)
-            return f"已更新书籍《{book.info.book_name}》信息"
+            self.DB.sync_content(book)
+            return f"已更新书籍《{book.info.book_name}》基础信息、章节列表\n更新情况:\n{result}"
         except Exception as e:
             return str(e)
 
@@ -63,3 +66,6 @@ class BookShelf:
 
     def get_book(self, book_id: str) -> Book:
         return self.DB.get_book(book_id)
+
+    def get_chapters(self, book_id: str, page: int = 0) -> list[ChapterInfo]:
+        return self.DB.get_chapters(book_id, page)

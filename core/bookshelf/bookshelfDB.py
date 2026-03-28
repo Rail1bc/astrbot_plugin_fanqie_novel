@@ -1,9 +1,10 @@
 import os
 import sqlite3
 from contextlib import contextmanager
+from tkinter.tix import Select
 from typing import List, Dict, Any, Optional
 
-from .book import Book, ChapterInfo
+from .book import Book, ChapterInfo, ContentInfo
 
 
 class BookshelfDB:
@@ -79,8 +80,11 @@ class BookshelfDB:
         # 正文表
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS contents (
+                book_id TEXT NOT NULL,
+                idx INTEGER NOT NULL,
                 item_id TEXT PRIMARY KEY,
                 version TEXT,
+                title TEXT,
                 content TEXT NOT NULL
             )
         """)
@@ -140,7 +144,10 @@ class BookshelfDB:
         row = cursor.fetchone()
         if row is None:
             raise ValueError(f"Book not found: {book_id}")
-        return Book.book_from_dict(dict(row))
+        book = Book.book_from_dict(dict(row))
+        book.chapter_list = self.get_all_chapters(book.info.book_id)
+        book.content_list = self.get_content_list(book.info.book_id)
+        return book
 
     def search_books(self, keyword: str) -> List[Book]:
         """根据关键词搜索，任意条目包含关键词则算匹配"""
@@ -161,11 +168,14 @@ class BookshelfDB:
 
 
     def get_all_books(self) -> List[Book]:
-        """获取所有书籍列表（按添加顺序），返回每本书的展示字符串"""
+        """获取所有书籍列表（按添加顺序），返回每本书"""
         cursor = self.conn.execute("SELECT * FROM books ORDER BY rowid")
         books = []
         for row in cursor:
-            books.append(Book.book_from_dict(dict(row)))
+            book = Book.book_from_dict(dict(row))
+            book.chapter_list = self.get_all_chapters(book.info.book_id)
+            book.content_list = self.get_content_list(book.info.book_id)
+            books.append(book)
         return books
 
     def delete_book(self, book_id: str):
@@ -182,12 +192,15 @@ class BookshelfDB:
         使用 INSERT OR REPLACE 实现插入或更新。
         """
         book_id = book.info.book_id
+        data = [
+            (book_id, idx, chapter.item_id, chapter.version, chapter.title, chapter.volume_name)
+            for idx, chapter in enumerate(book.chapter_list, start=1)
+        ]
         with self.transaction():
-            for idx, ch in enumerate(book.chapter_list, start=1):
-                self.conn.execute("""
-                    INSERT OR REPLACE INTO chapters (book_id, idx, item_id, version, title, volume_name)
-                    VALUES (?, ?, ?, ?, ?, ?)
-                """, (book_id, idx, ch.item_id, ch.version, ch.title, ch.volume_name))
+            self.conn.executemany("""
+                        INSERT OR REPLACE INTO chapters (book_id, idx, item_id, version, title, volume_name)
+                        VALUES (?, ?, ?, ?, ?, ?)
+                    """, data)
 
     def get_chapters(self, book_id: str, offset: int = 0, limit: int = 100) -> list[ChapterInfo]:
         """
@@ -221,18 +234,32 @@ class BookshelfDB:
         return ChapterInfo.from_api_dict(dict(row))
 
     # ---------- 正文操作 ----------
-    def get_content(self, item_id: str) -> Optional[str]:
+    def sync_content(self, book: Book) -> None:
+        """
+        将 book.content_list 同步到数据库。
+        使用 INSERT OR REPLACE 实现插入或更新。
+        """
+        book_id = book.info.book_id
+        data = [
+            (book_id, idx, content.item_id, content.version, content.title, content.content)
+            for idx, content in enumerate(book.content_list, start=1)
+        ]
+        with self.transaction():
+            self.conn.executemany("""
+                        INSERT OR REPLACE INTO contents (book_id, idx, item_id, version, title, content)
+                        VALUES (?, ?, ?, ?, ?, ?)
+                    """, data)
+
+    def get_content_list(self, book_id: str) -> list[ContentInfo]:
+        """获取某书的正文列表，并按章节索引排序"""
+        cursor = self.conn.execute("SELECT * FROM contents WHERE book_id = ? ORDER BY idx", (book_id,))
+        return [ContentInfo.from_db_dict(dict(row)) for row in cursor]
+
+    def get_content(self, item_id: str) -> ContentInfo:
         """获取章节正文"""
         cursor = self.conn.execute("SELECT * FROM contents WHERE item_id=?", (item_id,))
         row = cursor.fetchone()
-        return row['content'] if row else None
-
-    def set_content(self, item_id: str, content: str) -> None:
-        """存储或更新章节正文"""
-        with self.transaction():
-            self.conn.execute("""
-                INSERT OR REPLACE INTO contents (item_id, content) VALUES (?, ?)
-            """, (item_id, content))
+        return ContentInfo.from_db_dict(dict(row))
 
     # ---------- 书签操作 ----------
     def get_default_bookmark(self, book_id: str) -> int:
@@ -287,5 +314,3 @@ class BookshelfDB:
             ORDER BY bookmark_id = 0 DESC, bookmark_id
         """, (book_id,))
         return [dict(row) for row in cursor.fetchall()]
-
-    # ---------- 工作流程辅助方法（可选） ----------

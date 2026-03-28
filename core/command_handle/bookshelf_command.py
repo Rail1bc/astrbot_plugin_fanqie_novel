@@ -4,7 +4,7 @@ from ..bookshelf.book import Book
 from ...core.bookshelf.bookshelf import BookShelf
 from ...rain_api.rain_tomato_api import RainTomatoAPI
 
-class NovelCommandHandle:
+class BookShelfCommandHandle:
 
     # ---------- 搜书 -----------
     @staticmethod
@@ -15,7 +15,7 @@ class NovelCommandHandle:
             return event.plain_result("请提供搜索关键词，格式：\n/搜书 <关键词> [页码|0]")
         keywords = args[1]
         page = int(args[2]) if len(args) > 2 and args[2].isdigit() else 0
-        result = await NovelCommandHandle._search_book_by_keywords(keywords, page)
+        result = await BookShelfCommandHandle._search_book_by_keywords(keywords, page)
         return event.plain_result(result)
 
     @staticmethod
@@ -42,13 +42,13 @@ class NovelCommandHandle:
         if (args is None) or (len(args) < 2):
             return event.plain_result("请提供书籍ID，格式：\n/加书架 <book_id>")
         book_id = args[1]
-        result = await NovelCommandHandle._add_book_to_shelf(book_id, bookshelf)
+        result = await BookShelfCommandHandle._add_book_to_shelf(book_id, bookshelf)
         return event.plain_result(result)
 
     @staticmethod
     async def _add_book_to_shelf(book_id: str, bookshelf: BookShelf) -> str:
         """将书籍加入到书架"""
-        book_or_msg = await NovelCommandHandle._search_book_by_id(book_id)
+        book_or_msg = await BookShelfCommandHandle._search_book_by_id(book_id)
         if isinstance(book_or_msg, str):
             return book_or_msg
         book: Book = book_or_msg
@@ -83,10 +83,18 @@ class NovelCommandHandle:
         result = bookshelf.show_book(keyword)
         return event.plain_result(result)
 
-
-
-
-
+    # ---------- 看目录 ------------
+    @staticmethod
+    async def show_book_toc(event: AstrMessageEvent, bookshelf: BookShelf):
+        """展示书籍目录 /看目录 <book_id> [页码|0]"""
+        args = event.message_str.split()
+        if (args is None) or (len(args) < 2):
+            return event.plain_result("请提供书籍ID，格式：\n/看目录 <book_id> [页码|0]")
+        book_id = args[1]
+        page = int(args[2]) if len(args) > 2 and args[2].isdigit() else 0
+        chapters = bookshelf.get_chapters(book_id, page)
+        result = "章节列表:\n" + "\n".join([f"{i+1}: {chapter.title}" for i, chapter in enumerate(chapters)])
+        return event.plain_result(result)
 
 
     @staticmethod

@@ -6,7 +6,7 @@ from astrbot.core.utils.astrbot_path import get_astrbot_data_path
 from pathlib import Path
 from .core.bookshelf.book import Book
 from .core.bookshelf.bookshelf import BookShelf
-from .core.command_handle.novel_command import NovelCommandHandle
+from .core.command_handle.bookshelf_command import BookShelfCommandHandle
 from .rain_api.rain_tomato_api import RainTomatoAPI
 
 
@@ -25,38 +25,44 @@ class FanqieNovel(Star):
     async def novel_search(self, event: AstrMessageEvent):
         """根据关键词搜索小说 /<搜书|search_book> <关键词> [页码|0]"""
         yield event.plain_result("正在搜索小说...")
-        yield await NovelCommandHandle.novel_search(event)
+        yield await BookShelfCommandHandle.novel_search(event)
 
     # -------- 书架操作 ---------
     @filter.command("add2shelf",None,{"加书架"})
     @filter.permission_type(filter.PermissionType.ADMIN)
     async def add_book2shelf(self, event: AstrMessageEvent):
         """将书籍叫入到书架 /<加书架|add2shelf> <book_id>"""
-        yield await NovelCommandHandle.add_book2shelf(event, self.bookshelf)
+        yield await BookShelfCommandHandle.add_book2shelf(event, self.bookshelf)
 
     @filter.command("rm_book", None, {"删书"})
     @filter.permission_type(filter.PermissionType.ADMIN)
     async def remove_book(self, event: AstrMessageEvent):
         """删除书籍 /<删书|rm_book> <book_id>"""
-        yield NovelCommandHandle.remove_book(event, self.bookshelf)
+        yield BookShelfCommandHandle.remove_book(event, self.bookshelf)
 
     @filter.command("update_bookshelf", None, {"更新书架"})
     @filter.permission_type(filter.PermissionType.ADMIN)
     async def update_bookshelf(self, event: AstrMessageEvent):
         """更新书架内容 /<更新书架|update_bookshelf> [book_id]"""
-        yield await NovelCommandHandle.update_bookshelf(event, self.bookshelf)
+        yield await BookShelfCommandHandle.update_bookshelf(event, self.bookshelf)
 
     @filter.command("show_bookshelf",None,{"看书架"})
     async def bookshelf_show(self, event: AstrMessageEvent):
         """展示书架内容 /<看书架|show_bookshelf> [关键词]"""
-        yield await NovelCommandHandle.bookshelf_show(event, self.bookshelf)
+        yield await BookShelfCommandHandle.bookshelf_show(event, self.bookshelf)
+
+    @filter.command("show_book_toc", None, {"看目录"})
+    async def book_toc(self, event: AstrMessageEvent):
+        """展示书籍目录 /<看目录|show_book_toc> <book_id> [页码|0]"""
+        yield await BookShelfCommandHandle.show_book_toc(event, self.bookshelf)
 
 
     # -------- 读书操作 ---------
-    @filter.command("read_book",None,{"读书"})
+    @filter.command("take_book",None,{"取书"})
     @filter.permission_type(filter.PermissionType.ADMIN)
-    async def read_book(self, event: AstrMessageEvent):
+    async def take_book(self, event: AstrMessageEvent):
         """进入读书状态 /<读书|read_book> <book_id>"""
+
 
     @filter.command("bookshelf",None,{"书架", "bs"})
     @filter.permission_type(filter.PermissionType.ADMIN)
