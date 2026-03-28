@@ -4,8 +4,8 @@ from .bookshelfDB import BookshelfDB
 
 
 class BookShelf:
-    def __init__(self):
-        self.DB = BookshelfDB()
+    def __init__(self, path: str):
+        self.DB = BookshelfDB(path)
 
     async def add_book(self, book: Book):
         """

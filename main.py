@@ -2,7 +2,8 @@ from astrbot.api.event import filter, AstrMessageEvent, MessageEventResult
 from astrbot.api.star import Context, Star, register
 from astrbot.api import logger
 from astrbot.core.star.filter.permission import PermissionType
-
+from astrbot.core.utils.astrbot_path import get_astrbot_data_path
+from pathlib import Path
 from .core.bookshelf.book import Book
 from .core.bookshelf.bookshelf import BookShelf
 from .core.command_handle.novel_command import NovelCommandHandle
@@ -14,7 +15,8 @@ class FanqieNovel(Star):
     def __init__(self, context: Context, config=None):
         super().__init__(context)
         self.config = config or {}
-        self.bookshelf: BookShelf = BookShelf()
+        self.data_path = Path(get_astrbot_data_path()) / "plugin_data" / self.name
+        self.bookshelf: BookShelf = BookShelf(str(self.data_path / "bookshelf.db"))
         self.reading_book: Book | None = None
 
     # -------- 搜书 ---------

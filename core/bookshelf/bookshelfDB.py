@@ -1,7 +1,6 @@
 import sqlite3
 from contextlib import contextmanager
 from typing import List, Dict, Any, Optional
-from astrbot.core.utils.astrbot_path import get_astrbot_data_path
 
 from .book import Book, ChapterInfo
 
@@ -9,11 +8,11 @@ from .book import Book, ChapterInfo
 class BookshelfDB:
     """书架数据库管理类，封装所有表操作"""
 
-    def __init__(self):
+    def __init__(self, path: str):
         """
         初始化数据库连接，创建表结构并开启必要的 PRAGMA。
         """
-        self.db_path = get_astrbot_data_path() / "plugin_data" / self.name / "bookshelf.db"
+        self.db_path = path
         self.conn = sqlite3.connect(self.db_path)
         self.conn.row_factory = sqlite3.Row  # 使查询结果可像字典一样访问
 
