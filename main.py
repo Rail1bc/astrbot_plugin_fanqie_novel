@@ -56,6 +56,11 @@ class FanqieNovel(Star):
         """展示书籍目录 /<看目录|show_book_toc> <book_id> [页码|0]"""
         yield await BookShelfCommandHandle.show_book_toc(event, self.bookshelf)
 
+    @filter.command("正文")
+    async def book_chapter(self, event: AstrMessageEvent):
+        book_id = event.message_str.split()[1]
+        yield event.plain_result(self.bookshelf.get_book(book_id).content_list[0].content)
+
 
     # -------- 读书操作 ---------
     @filter.command("take_book",None,{"取书"})
