@@ -168,10 +168,11 @@ class BookshelfDB:
             books.append(Book.book_from_dict(dict(row)))
         return books
 
-    def delete_book(self, book_id: str) -> None:
+    def delete_book(self, book_id: str):
         """删除书籍及其关联的章节、正文、书签（外键级联删除）"""
         with self.transaction():
             self.conn.execute("DELETE FROM books WHERE book_id = ?", (book_id,))
+        return f"已执行删除命令，删除id为{book_id}的书籍。"
 
     # ---------- 章节操作 ----------
 
