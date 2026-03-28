@@ -38,8 +38,7 @@ class FanqieNovel(Star):
     @filter.permission_type(filter.PermissionType.ADMIN)
     async def remove_book(self, event: AstrMessageEvent):
         """删除书籍 /<删书|rm_book> <book_id>"""
-        for item in NovelCommandHandle.remove_book(event, self.bookshelf):
-            yield item
+        yield NovelCommandHandle.remove_book(event, self.bookshelf)
 
     @filter.command("update_bookshelf", None, {"更新书架"})
     @filter.permission_type(filter.PermissionType.ADMIN)
