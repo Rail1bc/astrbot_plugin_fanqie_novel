@@ -56,6 +56,7 @@ class ChapterInfo:
     version: str
     title: str
     volume_name: str
+    raw: Dict[str, Any] = field(default_factory=dict)   # 原始数据
 
     @classmethod
     def from_api_dict(cls, data: dict) -> "ChapterInfo":
