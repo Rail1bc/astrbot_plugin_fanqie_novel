@@ -1,7 +1,7 @@
 from dataclasses import dataclass, field
 from typing import Optional, Any, Dict
 
-from ..rain_api.rain_tomato_api import RainTomatoAPI
+from rain_api.rain_tomato_api import RainTomatoAPI
 
 
 @dataclass
@@ -53,16 +53,19 @@ class BookInfo:
 @dataclass
 class ChapterInfo:
     item_id: str
+    version: str
     title: str
     volume_name: str
 
     @classmethod
     def from_api_dict(cls, data: dict) -> "ChapterInfo":
         item_id = data.get("item_id")
+        version = data.get("version")
         title = data.get("title")
         volume_name = data.get("volume_name")
         return cls(
             item_id=item_id,
+            version=version,
             title=title,
             volume_name=volume_name,
             raw=data,

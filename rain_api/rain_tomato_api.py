@@ -9,7 +9,7 @@ logger = logging.getLogger(__name__)
 
 
 class RainTomatoAPI:
-    """异步番茄API客户端"""
+    """异步番茄API"""
 
     DEFAULT_BASE = "https://v3.rain.ink/fanqie/"
 
@@ -23,7 +23,7 @@ class RainTomatoAPI:
         session: Optional[aiohttp.ClientSession] = None,
     ):
         """
-        初始化API客户端。
+        初始化API。
 
         :param apikey: API密钥
         :param base_url: 基地址，默认使用DEFAULT_BASE
