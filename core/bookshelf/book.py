@@ -100,7 +100,7 @@ class ContentInfo:
         suffix = "\\n 为保证服务质量，免费用户请不要下书！或前往网站赞助后刷新隐藏该提示(赞助用户一天可下载一万章)"
         if content.endswith(suffix):
             content = content[:-len(suffix)]
-        content.replace("<\/p>", "\n")
+        content = content.replace("<\/p>", "\n")
         return cls(
             item_id=item_id,
             version=version,
