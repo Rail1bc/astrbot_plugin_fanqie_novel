@@ -71,7 +71,7 @@ class BookShelfCommandHandle:
         book_id = args[1]
         page = int(args[2]) if len(args) > 2 and args[2].isdigit() else 1
         limit = int(args[3] if len(args) > 3 and args[2].isdigit() else 100)
-        result = BookShelfHandle.show_book_toc(book_id,bookshelf,page,limit)
+        result = await BookShelfHandle.show_book_toc(book_id,bookshelf,page,limit)
         return event.plain_result(result)
 
     # --------- 辅助方法

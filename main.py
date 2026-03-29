@@ -107,7 +107,7 @@ class FanqieNovel(Star):
             keywords (str): 必填 搜索关键词，支持小说名、简介，不支持作者名
             page (int): 选填 搜索分页，默认0
         """
-        await event.plain_result(f"""正在搜索关于"{keywords}"的小说...""")
+        event.plain_result(f"""正在搜索关于"{keywords}"的小说...""")
         return await BookShelfHandle.novel_search(keywords, page)
 
     @filter.llm_tool(name="add_novel2shelf")
@@ -140,7 +140,7 @@ class FanqieNovel(Star):
             page (int): 选填 起始章节，默认1
             limit (int): 选填 查询量，默认100
         """
-        return BookShelfHandle.show_book_toc(book_id, self.bookshelf, page, limit)
+        return await BookShelfHandle.show_book_toc(book_id, self.bookshelf, page, limit)
 
 
 
