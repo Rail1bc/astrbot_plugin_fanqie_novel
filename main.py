@@ -88,7 +88,10 @@ class FanqieNovel(Star):
         else:
             api = await RainTomatoAPI.get_instance(apikey,base_url=base_url)
             logger.debug("api 初始化完成")
-            books = await api.search("我的兄弟叫顺溜")
+            try:
+                books = await api.search("我的兄弟叫顺溜")
+            except Exception as e:
+                logger.warning(f"拉取测试失败，api不能正常工作:\n{e}")
 
 
 

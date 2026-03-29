@@ -86,47 +86,41 @@ class RainTomatoAPI:
         await self.close()
 
     async def _get(self, params: Dict[str, Any]) -> Optional[Dict[str, Any]]:
-        """
-        异步GET请求，带重试和错误处理。
-
-        :param params: 请求参数（apikey会自动添加）
-        :return: 解析后的JSON字典，失败时返回None
-        """
+        if self.enable is False:
+            raise ValueError("\nRainTomatoAPI 已标记为失效")
         params = params.copy()
         params["apikey"] = self.apikey
-        # 构建URL，处理已有查询参数的情况
         sep = "&" if "?" in self.base_url else "?"
         url = f"{self.base_url}{sep}{urlencode(params)}"
 
+        session = await self._get_session()
+        timeout = aiohttp.ClientTimeout(total=self.timeout)
         last_err = None
-        for attempt in range(1, self.max_retries + 2):
+
+        for attempt in range(self.max_retries + 1):  # 尝试次数 = max_retries+1
             try:
-                session = await self._get_session()
-                timeout = aiohttp.ClientTimeout(total=self.timeout)
                 async with session.get(url, timeout=timeout) as resp:
                     resp.raise_for_status()
                     text = await resp.text()
-                    # 空响应或"null"视为无数据
                     if not text or text.strip() == "null":
-                        logger.warning("响应为空或null")
-                        self.enable = False
-                        return None
+                        raise TypeError("响应为空或null")
                     data = await resp.json()
-                    # 检查业务状态码
                     if data.get("message") != "SUCCESS":
-                        logger.warning("请求未成功: %r", data)
-                        self.enable = False
+                        raise ValueError(f"业务状态异常, message:{data.get('message')}")
                     return data
-            except (aiohttp.ClientError, asyncio.TimeoutError) as e:
-                last_err = e
-                logger.debug("请求失败（尝试 %d/%d）: %s", attempt, self.max_retries + 1, e)
-                if attempt <= self.max_retries:
-                    await asyncio.sleep(self.backoff * attempt)
 
-        # 重试耗尽
+            except (aiohttp.ClientError, asyncio.TimeoutError, ValueError) as e:
+                last_err = e
+                logger.debug("请求失败（尝试 %d/%d）: %s", attempt + 1, self.max_retries + 1, e)
+                if attempt < self.max_retries:  # 还有重试机会
+                    await asyncio.sleep(self.backoff * (attempt + 1))
+                else:
+                    break  # 重试耗尽，退出循环
+
+        # 所有尝试均失败
         self.enable = False
-        logger.warning("请求失败，已超过最大重试次数: %s", last_err)
-        return None
+        logger.warning("已超过最大重试次数:\n%s", last_err)
+        raise Exception(f"超过最大重试次数:\n{last_err}") from last_err
 
     async def search(self, keywords: str, page: int = 0) -> List[Dict[str, Any]]:
         """
@@ -137,7 +131,10 @@ class RainTomatoAPI:
         :return: 书籍列表
         """
         params = {"type": 1, "keywords": keywords, "page": page}
-        data = await self._get(params)
+        try:
+            data = await self._get(params)
+        except Exception as e:
+            raise Exception(f"搜索请求失败,{e}") from e
         search_tabs = data.get("search_tabs", [])
         # 找到 tab_type 为 3 或 '3' 的 tab
         target_tab = next(
@@ -151,6 +148,8 @@ class RainTomatoAPI:
                 book_list.append(book_data[0])
         return book_list
 
+
+
     async def book_info(self, bookid: str) -> Optional[Dict[str, Any]]:
         """
         获取书籍详细信息。
@@ -159,7 +158,10 @@ class RainTomatoAPI:
         :return: 书籍信息字典，失败返回None
         """
         params = {"type": 2, "bookid": bookid}
-        data = await self._get(params)
+        try:
+            data = await self._get(params)
+        except Exception as e:
+            raise Exception(f"获取书籍信息请求失败,{e}") from e
         return data.get("data") if data else None
 
     async def toc(self, bookid: str) -> Optional[List[Dict[str, Any]]]:
@@ -170,7 +172,10 @@ class RainTomatoAPI:
         :return: 目录列表，失败返回None
         """
         params = {"type": 3, "bookid": bookid}
-        data = await self._get(params)
+        try:
+            data = await self._get(params)
+        except Exception as e:
+            raise Exception(f"获取目录请求失败,{e}") from e
         if data:
             return data.get("data", {}).get("item_data_list")
         return None
@@ -183,5 +188,8 @@ class RainTomatoAPI:
         :return: 章节内容字典，失败返回None
         """
         params = {"type": 4, "itemid": itemid}
-        data = await self._get(params)
+        try:
+            data = await self._get(params)
+        except Exception as e:
+            raise Exception(f"获取章节内容请求失败,{e}") from e
         return data.get("data") if data else None

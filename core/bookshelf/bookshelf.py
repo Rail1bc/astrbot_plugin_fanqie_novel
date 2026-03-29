@@ -13,8 +13,12 @@ class BookShelf:
         同时添加章节列表
         """
         self.DB.sync_book(book)
-        await book.update_chapter_list()
-        self.DB.sync_chapters(book)
+        if await book.update_chapter_list():
+            self.DB.sync_chapters(book)
+            return f"已将《{book.info.book_name}》加入书架。"
+        else:
+            return f"已将《{book.info.book_name}》加入,但章节列表拉取失败。"
+
 
     def show_book(self, keyword: str | None) -> str:
         """
@@ -44,16 +48,17 @@ class BookShelf:
                 self.DB.sync_chapters(book)
                 self.DB.sync_content(book)
             result = "\n--------\n".join(result)
-            return f"已更新书架全部书籍基础信息、章节列表\n更新情况：\n{result}"
+            return f"已更新书架全部书籍\n更新情况：\n{result}"
         try:
             book = self.DB.get_book(book_id)
             result = await book.update()
             self.DB.sync_book(book)
             self.DB.sync_chapters(book)
             self.DB.sync_content(book)
-            return f"已更新书籍《{book.info.book_name}》基础信息、章节列表\n更新情况:\n{result}"
         except Exception as e:
             return str(e)
+        return f"已更新书籍《{book.info.book_name}》\n更新情况:\n{result}"
+
 
     def delete_book(self, book_id: str) -> str:
         """

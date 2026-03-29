@@ -10,50 +10,47 @@ class BookShelfCommandHandle:
     @staticmethod
     async def novel_search(event: AstrMessageEvent):
         """根据关键词搜索小说 /搜书 <关键词> [页码|0]"""
+        # 解析参数
         args = event.message_str.split()
         if (args is None) or (len(args) < 2):
             return event.plain_result("请提供搜索关键词，格式：\n/搜书 <关键词> [页码|0]")
         keywords = args[1]
         page = int(args[2]) if len(args) > 2 and args[2].isdigit() else 0
-        result = await BookShelfCommandHandle._search_book_by_keywords(keywords, page)
-        return event.plain_result(result)
 
-    @staticmethod
-    async def _search_book_by_keywords(keywords: str, page: int = 0) -> str:
-        """根据关键字搜索小说"""
+        # 调用API搜索书籍
         api = await RainTomatoAPI.get_instance()
+        try:
+            books_data = await api.search(keywords, page)
+        except Exception as e:
+            return f"搜索请求失败:\n{e}"
+        book_list = Book.list_from_dict(books_data)
 
-        if (api is None) or (api.enable is False):
-            return "api失效，无法更新、获取新的书籍信息。"
-
-        books_data = await api.search(keywords, page)
-        book_list = Book.book_list_from_dict(books_data)
-
-        result = ("搜索结果：\n----------\n" +
-               "\n----------\n".join([f"{i+1}. {book.book_info_to_str()}" for i, book in enumerate(book_list)]))
-        return result
-
+        # 处理结果
+        result = (
+            "搜索结果：\n----------\n" +
+            "\n----------\n".join(
+                [f"{i + 1}. {book.book_info_to_str()}" for i, book in enumerate(book_list)]
+            )
+        )
+        return event.plain_result(result)
 
     # ---------- 加书架 -----------
     @staticmethod
     async def add_book2shelf(event: AstrMessageEvent, bookshelf: BookShelf):
         """将书籍加入到书架 /加书架 <book_id>"""
+        # 解析参数
         args = event.message_str.split()
         if (args is None) or (len(args) < 2):
             return event.plain_result("请提供书籍ID，格式：\n/加书架 <book_id>")
         book_id = args[1]
-        result = await BookShelfCommandHandle._add_book_to_shelf(book_id, bookshelf)
-        return event.plain_result(result)
 
-    @staticmethod
-    async def _add_book_to_shelf(book_id: str, bookshelf: BookShelf) -> str:
-        """将书籍加入到书架"""
+        # 构造Book并存入书架
         book_or_msg = await BookShelfCommandHandle._search_book_by_id(book_id)
         if isinstance(book_or_msg, str):
             return book_or_msg
         book: Book = book_or_msg
-        await bookshelf.add_book(book)
-        return f"已将《{book.info.book_name}》加入书架。"
+        result = await bookshelf.add_book(book)
+        return event.plain_result(result)
 
     # ----------- 删除书籍 ------------
     @staticmethod
@@ -96,10 +93,10 @@ class BookShelfCommandHandle:
         result = "章节列表:\n" + "\n".join([f"{i+1}: {chapter.title}" for i, chapter in enumerate(chapters)])
         return event.plain_result(result)
 
-
+    # --------- 辅助方法
     @staticmethod
     async def _search_book_by_id(book_id: str) -> Book | str:
         try:
-            return await Book.book_from_bookid(book_id)
-        except Exception as e:
+            return await Book.from_bookid(book_id)
+        except TypeError as e:
             return str(e)

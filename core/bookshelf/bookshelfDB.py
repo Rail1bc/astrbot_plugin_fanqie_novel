@@ -143,7 +143,7 @@ class BookshelfDB:
         row = cursor.fetchone()
         if row is None:
             raise ValueError(f"Book not found: {book_id}")
-        book = Book.book_from_dict(dict(row))
+        book = Book.from_dict(dict(row))
         book.chapter_list = self.get_all_chapters(book.info.book_id)
         book.content_list = self.get_content_list(book.info.book_id)
         return book
@@ -162,7 +162,7 @@ class BookshelfDB:
         cursor = self.conn.execute(query, (pattern, pattern, pattern, pattern, pattern))
         books = []
         for row in cursor:
-            books.append(Book.book_from_dict(dict(row)))
+            books.append(Book.from_dict(dict(row)))
         return books
 
 
@@ -171,7 +171,7 @@ class BookshelfDB:
         cursor = self.conn.execute("SELECT * FROM books ORDER BY rowid")
         books = []
         for row in cursor:
-            book = Book.book_from_dict(dict(row))
+            book = Book.from_dict(dict(row))
             book.chapter_list = self.get_all_chapters(book.info.book_id)
             book.content_list = self.get_content_list(book.info.book_id)
             books.append(book)
@@ -181,7 +181,7 @@ class BookshelfDB:
         """删除书籍及其关联的章节、正文、书签（外键级联删除）"""
         with self.transaction():
             self.conn.execute("DELETE FROM books WHERE book_id = ?", (book_id,))
-        return f"已执行删除命令，删除id为{book_id}的书籍。"
+        return f"已执行删除命令。"
 
     # ---------- 章节操作 ----------
 
@@ -212,7 +212,7 @@ class BookshelfDB:
             "SELECT * FROM chapters WHERE book_id = ? ORDER BY idx LIMIT ? OFFSET ?",
             (book_id, limit, offset)
         )
-        return [ChapterInfo.from_api_dict(dict(row)) for row in cursor]
+        return [ChapterInfo.from_dict(dict(row)) for row in cursor]
 
     def get_all_chapters(self, book_id: str) -> list[ChapterInfo]:
         """获取某本书的全部章节（按 idx 排序）"""
@@ -220,7 +220,7 @@ class BookshelfDB:
             "SELECT * FROM chapters WHERE book_id = ? ORDER BY idx",
             (book_id,)
         )
-        return [ChapterInfo.from_api_dict(dict(row)) for row in cursor]
+        return [ChapterInfo.from_dict(dict(row)) for row in cursor]
 
     def get_chapter(self, book_id: str, idx: int) -> ChapterInfo:
         """根据书籍 ID 和章节索引获取单个章节信息"""
@@ -230,7 +230,7 @@ class BookshelfDB:
         row = cursor.fetchone()
         if row is None:
             raise ValueError(f"Chapter not found: book_id={book_id}, idx={idx}")
-        return ChapterInfo.from_api_dict(dict(row))
+        return ChapterInfo.from_dict(dict(row))
 
     # ---------- 正文操作 ----------
     def sync_content(self, book: Book) -> None:
