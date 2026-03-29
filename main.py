@@ -1,9 +1,12 @@
+from os import name
+
 from astrbot.api.event import filter, AstrMessageEvent, MessageEventResult
 from astrbot.api.star import Context, Star, register
 from astrbot.api import logger
 from astrbot.core.utils.astrbot_path import get_astrbot_data_path
 from pathlib import Path
 
+from astrbot.core.star.star_handler import star_handlers_registry
 from .core.handle.bookshelf_handle import BookShelfHandle
 from .core.bookshelf.book import Book
 from .core.bookshelf.bookshelf import BookShelf
@@ -23,10 +26,15 @@ class FanqieNovel(Star):
         self.bookshelf: BookShelf = BookShelf(str(self.data_path / "bookshelf.db"))
         self.enable: bool = False
         self.reading_book: Book | None = None
+        self.command_set = {"Botomato", "search_book", "add2shelf", "rm_book", "update_bookshelf", "show_bookshelf", "show_book_toc"}
+        self.tool_set = {"Botomato_tool_status", "search_novel", "add_novel2shelf", "look_novel_toc", "Botomato_take_book"}
+        self.gate = {"Botomato", "Botomato_tool_status"}
+        self.switch = {"Botomato", "Botomato_tool_status", "Botomato_take_book"}
+        self.reading_tool = {"look_toc", "read_book", "move_bookmark", "read_chapter"}
         self.set_enable(False)
 
     # -------- 开启 ---------
-    @filter.command("bookshelf", None, {"书架"})
+    @filter.command("Botomato", None, {"书架"})
     @filter.permission_type(filter.PermissionType.ADMIN)
     async def bookshelf(self, event: AstrMessageEvent):
         """切换插件功能启用状态 /<书架|bookshelf> [on|off]"""
@@ -75,28 +83,17 @@ class FanqieNovel(Star):
         """展示书籍目录 /<看目录|show_book_toc> <book_id> [起始|1] [查询条目数|100]"""
         yield await BookShelfCommandHandle.show_book_toc(event, self.bookshelf)
 
-    @filter.command("正文")
-    async def book_chapter(self, event: AstrMessageEvent):
-        book_id = event.message_str.split()[1]
-        content = self.bookshelf.get_book(book_id).content_list[0].content
-        logger.debug(content)
-        yield event.plain_result(content)
-
-    def set_enable(self, enable: bool = None):
-        if enable is not None:
-            self.enable = enable
-        else:
-            self.enable = not self.enable
-        from astrbot.core.star.star_handler import star_handlers_registry
-        handlers = star_handlers_registry.get_handlers_by_module_name(self.module_path)
-        logger.debug(handlers)
-        for h in handlers:
-            if h.handler_name != "bookshelf":
-                h.enabled = self.enable
-                logger.debug(f"设置 {h.handler_name} 可见性")
-        return f"已{'启用' if self.enable else '禁用'} 🍅Botomato书架 功能"
-
     # -------- tool_call ---------
+    @filter.llm_tool(name="Botomato_tool_status")
+    async def botomato_bookshelf(self, event: AstrMessageEvent, status: bool):
+        """
+        Botomato书架工具开关，当需要阅读、搜索小说等，涉及小说信息的功能时使用
+
+        Args:
+            status (bool): 必填 工具开关状态，true表示开启工具，false表示关闭工具
+        """
+        self.set_enable(status)
+
 
     @filter.llm_tool(name="search_novel")
     async def call_search_novel(self, event: AstrMessageEvent, keywords: str, page: int = 0) :
@@ -119,7 +116,7 @@ class FanqieNovel(Star):
         """
         return await BookShelfHandle.add_book2shelf(book_id, self.bookshelf)
 
-    @filter.llm_tool(name="look_bookshelf")
+    @filter.llm_tool(name="add_novel2shelf")
     async def call_show_bookshelf(self, event: AstrMessageEvent, keywords: str = None):
         """
         查看书架藏书(包括book_id、书名、简介等)，当需要查看书架内容时，调用该工具。
@@ -141,7 +138,63 @@ class FanqieNovel(Star):
         """
         return await BookShelfHandle.show_book_toc(book_id, self.bookshelf, page, limit)
 
+    @filter.llm_tool(name="Botomato_take_book")
+    async def call_take_book(self, event: AstrMessageEvent, book_id: str = ""):
+        """
+        取书或收书，当需要阅读书架中的书籍时取书，当不需要阅读时收起
 
+        Args:
+            book_id (str): 选填 要取的书籍的id，不填时表示收起
+        """
+        return self.set_reading_book(book_id)
+
+
+
+    def set_reading_book(self, book_id: str = ""):
+        if not book_id:
+            self.reading_book = None
+            self.set_reading_tool_enable(False)
+            return "已收起书籍，书架操作能力已恢复，读书能力已关闭。"
+
+        self.reading_book = self.bookshelf.get_book(book_id)
+        self.set_reading_tool_enable(True)
+        return f"已取出书籍《{self.reading_book.info.book_name}》\n书架操作能力已关闭，读书能力已开启。"
+
+    def set_tool_status(self, status: str):
+        handlers = star_handlers_registry.get_handlers_by_module_name(self.module_path)
+        if status == "off":
+            for h in handlers:
+                if h.handler_name in self.tool_set:
+                    h.enabled = False
+            return "Botomato书架能力已关闭。"
+        elif status == "on":
+            for h in handlers:
+                if h.handler_name in (self.tool_set - self.reading_tool):
+                    h.enabled = True
+                elif h.handler_name in self.reading_tool:
+                    h.enabled = False
+        elif status == "reading":
+            for h in handlers:
+                if h.handler_name in (self.tool_set - self.reading_tool - self.switch):
+                    h.enabled = False
+                elif h.handler_name in self.reading_tool:
+                    h.enabled = True
+
+    def set_command_status(self, status: str):
+        if status == "off":
+            for h in handlers:
+
+    def set_enable(self, enable: bool = None):
+        if enable is not None:
+            self.enable = enable
+        else:
+            self.enable = not self.enable
+        handlers = star_handlers_registry.get_handlers_by_module_name(self.module_path)
+        for h in handlers:
+            if h.handler_name not in self.gate:
+                h.enabled = self.enable
+                logger.debug(f"设置 {h.handler_name} 可见性")
+        return f"已{'启用' if self.enable else '禁用'} 🍅Botomato书架 能力"
 
     async def initialize(self):
         """可选择实现异步的插件初始化方法，当实例化该插件类之后会自动调用该方法。"""

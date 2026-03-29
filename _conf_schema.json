@@ -3,7 +3,7 @@
     "description": "书源地址",
     "hint": "资源地址",
     "type": "string",
-    "default": "https://v3.rain.ink/fanqie/"
+    "default": ""
   },
   "rain_api_key": {
     "description": "rain api key",

@@ -11,8 +11,6 @@ logger = logging.getLogger(__name__)
 class RainTomatoAPI:
     """异步番茄API"""
 
-    DEFAULT_BASE = "https://v3.rain.ink/fanqie/"
-
     def __init__(
         self,
         apikey: str,
@@ -33,7 +31,7 @@ class RainTomatoAPI:
         :param session: 可选的aiohttp会话，若不提供则内部创建
         """
         self.apikey = apikey
-        self.base_url = base_url or self.DEFAULT_BASE
+        self.base_url = base_url
         self.timeout = timeout
         self.max_retries = max_retries
         self.backoff = backoff
