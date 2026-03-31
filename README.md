@@ -1,14 +1,27 @@
-# astrbot-plugin-helloworld
+# Botomato 🍅 书架
 
-AstrBot 插件模板 / A template plugin for AstrBot plugin feature
+一个面向 AI智能体 的小说书架插件！<br>
 
-> [!NOTE]
-> This repo is just a template of [AstrBot](https://github.com/AstrBotDevs/AstrBot) Plugin.
-> 
-> [AstrBot](https://github.com/AstrBotDevs/AstrBot) is an agentic assistant for both personal and group conversations. It can be deployed across dozens of mainstream instant messaging platforms, including QQ, Telegram, Feishu, DingTalk, Slack, LINE, Discord, Matrix, etc. In addition, it provides a reliable and extensible conversational AI infrastructure for individuals, developers, and teams. Whether you need a personal AI companion, an intelligent customer support agent, an automation assistant, or an enterprise knowledge base, AstrBot enables you to quickly build AI applications directly within your existing messaging workflows.
+> Bot🍅书架！为什么有个🍅？我劝你不要多管闲事！
 
-# Supports
+## 项目简介
 
-- [AstrBot Repo](https://github.com/AstrBotDevs/AstrBot)
-- [AstrBot Plugin Development Docs (Chinese)](https://docs.astrbot.app/dev/star/plugin-new.html)
-- [AstrBot Plugin Development Docs (English)](https://docs.astrbot.app/en/dev/star/plugin-new.html)
+
+## 路线图
+
+- 完善阅读工具链（按章节读取、移动书签、连续阅读）。
+- 补齐工具命名与注册一致性，避免覆盖。
+- 提供更完整的测试用例与示例对话。
+
+## 许可证
+
+本项目使用 `LICENSE` 中声明的许可证。
+
+## 致谢
+
+- AstrBot 框架
+- Botomato 书源服务
+
+## 免责声明
+本项目仅供AI智能体领域学习和研究使用，请勿用于商业用途或侵犯版权的行为。<br>
+使用者应自行承担使用本项目可能带来的法律风险。<br>
