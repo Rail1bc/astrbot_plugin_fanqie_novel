@@ -16,7 +16,7 @@ from .botomato_api.botomato_api import BotomatoAPI
 
 
 
-@register("astrbot_plugin_botomato", "Rail1bc", "让ai读小说，我是说让ai读，不是给你读", "0.1.0")
+@register("astrbot_plugin_botomato", "Rail1bc", "给bot读书用的虚拟书架!", "0.1.0")
 class BotomatoPlugin(Star):
     def __init__(self, context: Context, config=None):
         super().__init__(context)
@@ -26,10 +26,10 @@ class BotomatoPlugin(Star):
         self.bookshelf: BookShelf = BookShelf(str(self.data_path / "bookshelf.db"))
         self.enable: bool = False
         self.reading_book: Book | None = None
-        self.command_set = {"Botomato", "search_book", "add2shelf", "rm_book", "update_bookshelf", "show_bookshelf", "show_book_toc"}
-        self.tool_set = {"Botomato_tool_status", "search_novel", "add_novel2shelf", "look_novel_toc", "Botomato_take_book"}
-        self.gate = {"Botomato", "Botomato_tool_status"}
-        self.switch = {"Botomato", "Botomato_tool_status", "Botomato_take_book"}
+        self.gate = {"Botomato"}    # 总开关
+        self.switch = {"Botomato_tool_status"}    # tool开关
+        self.bookshelf_tool = {"Botomato_tool_status", "search_novel", "add_novel2shelf", "look_novel_toc", "Botomato_take_book"}
+        self.take_tool = {"Botomato_take_book"}
         self.reading_tool = {"look_toc", "read_book", "move_bookmark", "read_chapter"}
         self.set_enable(False)
 
@@ -37,7 +37,7 @@ class BotomatoPlugin(Star):
     @filter.command("Botomato", None, {"书架"})
     @filter.permission_type(filter.PermissionType.ADMIN)
     async def bookshelf(self, event: AstrMessageEvent):
-        """切换插件功能启用状态 /<书架|bookshelf> [on|off]"""
+        """总控制，切换插件功能启用状态 /<书架|bookshelf> [on|off]"""
         args = event.message_str.split()
         if len(args) < 2:
             yield event.plain_result(self.set_enable())
@@ -87,18 +87,18 @@ class BotomatoPlugin(Star):
     @filter.llm_tool(name="Botomato_tool_status")
     async def botomato_bookshelf(self, event: AstrMessageEvent, status: bool):
         """
-        Botomato书架工具开关，当需要阅读、搜索小说等，涉及小说信息的功能时使用
+        Botomato书架总开关，Botomato书架是属于bot的小说书架。
 
         Args:
-            status (bool): 必填 工具开关状态，true表示开启工具，false表示关闭工具
+            status (bool): 必填 开关状态，true表示开启工具，false表示关闭工具
         """
-        self.set_enable(status)
+        return self.set_reading_book("on" if status else "off")
 
 
     @filter.llm_tool(name="search_novel")
     async def call_search_novel(self, event: AstrMessageEvent, keywords: str, page: int = 0) :
         """
-        搜索小说基础信息(包括book_id、书名、简介等)，当需要根据关键词搜索小说时，调用该工具。
+        搜索小说基础信息(包括book_id、书名、简介等，不包括目录、正文)。
 
         Args:
             keywords (str): 必填 搜索关键词，支持小说名、简介，不支持作者名
@@ -109,7 +109,7 @@ class BotomatoPlugin(Star):
     @filter.llm_tool(name="add_novel2shelf")
     async def call_add_novel2shelf(self, event: AstrMessageEvent, book_id: str):
         """
-        将小说加入书架，当需要将小说加入书架时，调用该工具。
+        将小说加入书架。
 
         Args:
             book_id (str): 必填 书籍ID
@@ -119,7 +119,7 @@ class BotomatoPlugin(Star):
     @filter.llm_tool(name="add_novel2shelf")
     async def call_show_bookshelf(self, event: AstrMessageEvent, keywords: str = None):
         """
-        查看书架藏书(包括book_id、书名、简介等)，当需要查看书架内容时，调用该工具。
+        查看书架藏书(包括book_id、书名、简介等)。
 
         Args:
             keywords (str): 选填 关键词，支持包括书籍id、书名、作者名的多个字段匹配
@@ -129,7 +129,7 @@ class BotomatoPlugin(Star):
     @filter.llm_tool(name="look_novel_toc")
     async def call_look_novel_toc(self, event: AstrMessageEvent, book_id: str, page: int = 1, limit: int = 100):
         """
-        查看小说目录，当需要查看书架中小说的目录时，调用该工具。
+        查看小说目录，只能查看书架内的小说。
 
         Args:
             book_id (str): 必填 书籍ID
@@ -141,7 +141,7 @@ class BotomatoPlugin(Star):
     @filter.llm_tool(name="Botomato_take_book")
     async def call_take_book(self, event: AstrMessageEvent, book_id: str = ""):
         """
-        取书或收书，当需要阅读书架中的书籍时取书，当不需要阅读时收起
+        从书架取一本书，以进一步阅读或其他操作。
 
         Args:
             book_id (str): 选填 要取的书籍的id，不填时表示收起
@@ -153,36 +153,33 @@ class BotomatoPlugin(Star):
     def set_reading_book(self, book_id: str = ""):
         if not book_id:
             self.reading_book = None
-            self.set_reading_tool_enable(False)
-            return "已收起书籍，书架操作能力已恢复，读书能力已关闭。"
+            return self.set_tool_status("on")
 
         self.reading_book = self.bookshelf.get_book(book_id)
-        self.set_reading_tool_enable(True)
-        return f"已取出书籍《{self.reading_book.info.book_name}》\n书架操作能力已关闭，读书能力已开启。"
+        result = self.set_tool_status("reading")
+        return f"已取出书籍《{self.reading_book.info.book_name}》\n{result}"
 
     def set_tool_status(self, status: str):
         handlers = star_handlers_registry.get_handlers_by_module_name(self.module_path)
         if status == "off":
             for h in handlers:
-                if h.handler_name in self.tool_set:
+                if h.handler_name in (self.bookshelf_tool | self.take_tool | self.reading_tool):
                     h.enabled = False
-            return "Botomato书架能力已关闭。"
+            return "已退出Botomato书架"
         elif status == "on":
             for h in handlers:
-                if h.handler_name in (self.tool_set - self.reading_tool):
+                if h.handler_name in (self.bookshelf_tool | self.take_tool | self.switch):
                     h.enabled = True
                 elif h.handler_name in self.reading_tool:
                     h.enabled = False
+            return "现在可以管理Botomato书架！"
         elif status == "reading":
             for h in handlers:
-                if h.handler_name in (self.tool_set - self.reading_tool - self.switch):
+                if h.handler_name in self.bookshelf_tool:
                     h.enabled = False
-                elif h.handler_name in self.reading_tool:
+                elif h.handler_name in (self.reading_tool | self.take_tool | self.switch):
                     h.enabled = True
-
-    def set_command_status(self, status: str):
-        if status == "off":
-            for h in handlers:
+            return "现在可以开始阅读！"
 
     def set_enable(self, enable: bool = None):
         if enable is not None:
@@ -193,8 +190,7 @@ class BotomatoPlugin(Star):
         for h in handlers:
             if h.handler_name not in self.gate:
                 h.enabled = self.enable
-                logger.debug(f"设置 {h.handler_name} 可见性")
-        return f"已{'启用' if self.enable else '禁用'} 🍅Botomato书架 能力"
+        return f"{'启用' if self.enable else '禁用'} 🍅Botomato 书架！"
 
     async def initialize(self):
         """可选择实现异步的插件初始化方法，当实例化该插件类之后会自动调用该方法。"""
