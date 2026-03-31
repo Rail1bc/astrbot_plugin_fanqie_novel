@@ -16,13 +16,13 @@ from .botomato_api.botomato_api import BotomatoAPI
 
 
 
-@register("astrbot_plugin_fanqie_novel", "Rail1bc", "让ai读小说，我是说让ai读，不是给你读", "0.1.0")
-class FanqieNovel(Star):
+@register("astrbot_plugin_botomato", "Rail1bc", "让ai读小说，我是说让ai读，不是给你读", "0.1.0")
+class BotomatoPlugin(Star):
     def __init__(self, context: Context, config=None):
         super().__init__(context)
         self.config = config or {}
         self.data_path = (Path(get_astrbot_data_path()) / "plugin_data" / self.name)
-        self.module_path = "data.plugins.astrbot_plugin_fanqie_novel.main"
+        self.module_path = "data.plugins.astrbot_plugin_botomato.main"
         self.bookshelf: BookShelf = BookShelf(str(self.data_path / "bookshelf.db"))
         self.enable: bool = False
         self.reading_book: Book | None = None
