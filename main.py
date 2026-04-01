@@ -7,6 +7,8 @@ from astrbot.core.utils.astrbot_path import get_astrbot_data_path
 from pathlib import Path
 
 from astrbot.core.star.star_handler import star_handlers_registry
+
+from core.bookshelf.bookRepository import BookRepository
 from .core.handle.bookshelf_handle import BookShelfHandle
 from .core.bookshelf.book import Book
 from .core.bookshelf.bookshelf import BookShelf
@@ -22,8 +24,8 @@ class BotomatoPlugin(Star):
         super().__init__(context)
         self.config = config or {}
         self.data_path = (Path(get_astrbot_data_path()) / "plugin_data" / self.name)
+        BookRepository.set_db_path(str(self.data_path / "bookshelf.db"))
         self.module_path = "data.plugins.astrbot_plugin_botomato.main"
-        self.bookshelf: BookShelf = BookShelf(str(self.data_path / "bookshelf.db"))
         self.enable: bool = False
         self.reading_book: Book | None = None
         self.gate = {"Botomato"}    # 总开关
@@ -59,29 +61,29 @@ class BotomatoPlugin(Star):
     @filter.permission_type(filter.PermissionType.ADMIN)
     async def add_book2shelf(self, event: AstrMessageEvent):
         """将书籍叫入到书架 /<加书架|add2shelf> <book_id>"""
-        yield await BookShelfCommandHandle.add_book2shelf(event, self.bookshelf)
+        yield await BookShelfCommandHandle.add_book2shelf(event)
 
     @filter.command("rm_book", None, {"删书"})
     @filter.permission_type(filter.PermissionType.ADMIN)
     async def remove_book(self, event: AstrMessageEvent):
         """删除书籍 /<删书|rm_book> <book_id>"""
-        yield BookShelfCommandHandle.remove_book(event, self.bookshelf)
+        yield BookShelfCommandHandle.remove_book(event)
 
     @filter.command("update_bookshelf", None, {"更新书架"})
     @filter.permission_type(filter.PermissionType.ADMIN)
     async def update_bookshelf(self, event: AstrMessageEvent):
         """更新书架内容 /<更新书架|update_bookshelf> [book_id]"""
-        yield await BookShelfCommandHandle.update_bookshelf(event, self.bookshelf)
+        yield await BookShelfCommandHandle.update_bookshelf(event)
 
     @filter.command("show_bookshelf",None,{"看书架"})
     async def bookshelf_show(self, event: AstrMessageEvent):
         """展示书架内容 /<看书架|show_bookshelf> [关键词]"""
-        yield await BookShelfCommandHandle.bookshelf_show(event, self.bookshelf)
+        yield await BookShelfCommandHandle.bookshelf_show(event)
 
     @filter.command("show_book_toc", None, {"看目录"})
     async def book_toc(self, event: AstrMessageEvent):
         """展示书籍目录 /<看目录|show_book_toc> <book_id> [起始|1] [查询条目数|100]"""
-        yield await BookShelfCommandHandle.show_book_toc(event, self.bookshelf)
+        yield await BookShelfCommandHandle.show_book_toc(event)
 
     # -------- tool_call ---------
     @filter.llm_tool(name="Botomato_tool_status")
@@ -114,7 +116,7 @@ class BotomatoPlugin(Star):
         Args:
             book_id (str): 必填 书籍ID
         """
-        return await BookShelfHandle.add_book2shelf(book_id, self.bookshelf)
+        return await BookShelfHandle.add_book2shelf(book_id)
 
     @filter.llm_tool(name="show_novel4shelf")
     async def call_show_bookshelf(self, event: AstrMessageEvent, keywords: str = None):
@@ -124,7 +126,7 @@ class BotomatoPlugin(Star):
         Args:
             keywords (str): 选填 关键词，支持包括书籍id、书名、作者名的多个字段匹配
         """
-        return self.bookshelf.show_book(keywords)
+        return BookShelf.show_book(keywords)
 
     @filter.llm_tool(name="look_novel_toc")
     async def call_look_novel_toc(self, event: AstrMessageEvent, book_id: str, offset: int = 1, limit: int = 100):
@@ -136,7 +138,7 @@ class BotomatoPlugin(Star):
             offset (int): 选填 起始章节，默认1
             limit (int): 选填 查询量，默认100
         """
-        return await BookShelfHandle.show_book_toc(book_id, self.bookshelf, offset, limit)
+        return BookShelf.get_book(book_id).toc_to_str(offset, limit)
 
     # -------- reading tool --------
 
@@ -158,7 +160,7 @@ class BotomatoPlugin(Star):
         Args:
             无参数
         """
-        return self.reading_book.book_info_to_str()
+        return self.reading_book.info_to_str()
 
     @filter.llm_tool(name="look_toc")
     async def look_book(self, event: AstrMessageEvent, offset: int = 1, limit: int = 100):
@@ -169,7 +171,7 @@ class BotomatoPlugin(Star):
             offset (int): 选填 起始章节，默认1
             limit (int): 选填 查询量，默认100
         """
-        return BookShelfHandle.show_book_toc(self.reading_book.info.book_id, self.bookshelf, offset, limit)
+        return BookShelf.get_book(self.reading_book.info.book_id).toc_to_str(offset, limit)
 
 
     @filter.llm_tool(name="read_book")
@@ -182,7 +184,7 @@ class BotomatoPlugin(Star):
             self.reading_book = None
             return self.set_tool_status("on")
 
-        self.reading_book = self.bookshelf.get_book(book_id)
+        self.reading_book = BookShelf.get_book(book_id)
         result = self.set_tool_status("reading")
         return f"已取出书籍《{self.reading_book.info.book_name}》\n{result}"
 

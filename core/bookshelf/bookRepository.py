@@ -3,27 +3,37 @@ import sqlite3
 from contextlib import contextmanager
 from typing import List, Dict, Any
 
-from .book import Book, ChapterInfo, ContentInfo
+from .book_info import BookInfo, ChapterInfo, ContentInfo
 
 
-class BookshelfDB:
+class BookRepository:
     """书架数据库管理类，封装所有表操作"""
+    _instance = None
+    _db_path = None
 
-    def __init__(self, path: str):
+    def __new__(cls, *args, **kwargs):
+        if not cls._instance:
+            cls._instance = super().__new__(cls)
+            cls._instance._init_db()
+        return cls._instance
+
+    @classmethod
+    def set_db_path(cls, path: str):
+        cls._db_path = path
+
+    def _init_db(self):
         """
         初始化数据库连接，创建表结构并开启必要的 PRAGMA。
         """
-        self.db_path = path
-        db_dir = os.path.dirname(self.db_path)
+        db_dir = os.path.dirname(self._db_path)
         if db_dir and not os.path.exists(db_dir):
             os.makedirs(db_dir, exist_ok=True)
-        self.conn = sqlite3.connect(self.db_path)
+        self.conn = sqlite3.connect(self._db_path)
         self.conn.row_factory = sqlite3.Row  # 使查询结果可像字典一样访问
 
         # 开启外键约束和 WAL 模式（提升并发与稳定性）
         self.conn.execute("PRAGMA foreign_keys = ON")
         self.conn.execute("PRAGMA journal_mode = WAL")
-
         self._create_tables()
 
     def close(self):
@@ -104,13 +114,13 @@ class BookshelfDB:
 
     # ---------- 书籍操作 ----------
 
-    def sync_book(self, book: Book) -> None:
+    def sync_book_info(self, book_info: BookInfo) -> None:
         """
         同步书籍信息到数据库（插入或更新）。
         若书籍不存在则插入，若存在则更新所有字段。
         首次插入时自动创建默认书签（bookmark_id=0）。
         """
-        info = book.info
+        info = book_info
         with self.transaction():
             # 插入或替换书籍信息
             self.conn.execute("""
@@ -137,21 +147,15 @@ class BookshelfDB:
                 VALUES (?, 0, '上次阅读', 1)
             """, (info.book_id,))
 
-    def get_book(self, book_id: str) -> Book:
+    def get_book_info(self, book_id: str) -> "BookInfo":
         """获取单本书籍信息，返回 Book 对象"""
         cursor = self.conn.execute("SELECT * FROM books WHERE book_id = ?", (book_id,))
-        row = cursor.fetchone()
-        if row is None:
-            raise ValueError(f"Book not found: {book_id}")
-        book = Book.from_dict(dict(row))
-        book.chapter_list = self.get_all_chapters(book.info.book_id)
-        book.content_list = self.get_content_list(book.info.book_id)
-        return book
+        return BookInfo.from_dict(dict(cursor.fetchone()))
 
-    def search_books(self, keyword: str) -> List[Book]:
+    def search_books(self, keyword: str) -> List[str]:
         """根据关键词搜索，任意条目包含关键词则算匹配"""
         query = """
-                SELECT * FROM books
+                SELECT book_id FROM books
                 WHERE book_name LIKE ?
                    OR alias_name LIKE ?
                    OR original_book_name LIKE ?
@@ -162,19 +166,16 @@ class BookshelfDB:
         cursor = self.conn.execute(query, (pattern, pattern, pattern, pattern, pattern))
         books = []
         for row in cursor:
-            books.append(Book.from_dict(dict(row)))
+            books.append(row["book_id"])
         return books
 
 
-    def get_all_books(self) -> List[Book]:
+    def get_all_book_id(self) -> List[str]:
         """获取所有书籍列表（按添加顺序），返回每本书"""
-        cursor = self.conn.execute("SELECT * FROM books ORDER BY rowid")
+        cursor = self.conn.execute("SELECT book_id FROM books")
         books = []
         for row in cursor:
-            book = Book.from_dict(dict(row))
-            book.chapter_list = self.get_all_chapters(book.info.book_id)
-            book.content_list = self.get_content_list(book.info.book_id)
-            books.append(book)
+            books.append(row['book_id'])
         return books
 
     def delete_book(self, book_id: str):
@@ -185,15 +186,14 @@ class BookshelfDB:
 
     # ---------- 章节操作 ----------
 
-    def sync_chapters(self, book: Book) -> None:
+    def sync_chapters(self, book_id: str, chapter_list: List[ChapterInfo]) -> None:
         """
         将 book.chapter_list 同步到数据库。
         使用 INSERT OR REPLACE 实现插入或更新。
         """
-        book_id = book.info.book_id
         data = [
             (book_id, idx, chapter.item_id, chapter.version, chapter.title, chapter.volume_name)
-            for idx, chapter in enumerate(book.chapter_list, start=1)
+            for idx, chapter in enumerate(chapter_list, start=1)
         ]
         with self.transaction():
             self.conn.executemany("""
@@ -215,7 +215,7 @@ class BookshelfDB:
         )
         return [ChapterInfo.from_dict(dict(row)) for row in cursor]
 
-    def get_all_chapters(self, book_id: str) -> list[ChapterInfo]:
+    def get_all_chapters(self, book_id: str) -> List[ChapterInfo]:
         """获取某本书的全部章节（按 idx 排序）"""
         cursor = self.conn.execute(
             "SELECT * FROM chapters WHERE book_id = ? ORDER BY idx",
@@ -234,15 +234,14 @@ class BookshelfDB:
         return ChapterInfo.from_dict(dict(row))
 
     # ---------- 正文操作 ----------
-    def sync_content(self, book: Book) -> None:
+    def sync_content(self, book_id: str, content_list: List[ContentInfo]) -> None:
         """
         将 book.content_list 同步到数据库。
         使用 INSERT OR REPLACE 实现插入或更新。
         """
-        book_id = book.info.book_id
         data = [
             (book_id, idx, content.item_id, content.version, content.title, content.content)
-            for idx, content in enumerate(book.content_list, start=1)
+            for idx, content in enumerate(content_list, start=1)
         ]
         with self.transaction():
             self.conn.executemany("""
@@ -250,7 +249,7 @@ class BookshelfDB:
                         VALUES (?, ?, ?, ?, ?, ?)
                     """, data)
 
-    def get_content_list(self, book_id: str) -> list[ContentInfo]:
+    def get_content_list(self, book_id: str) -> List[ContentInfo]:
         """获取某书的正文列表，并按章节索引排序"""
         cursor = self.conn.execute("SELECT * FROM contents WHERE book_id = ? ORDER BY idx", (book_id,))
         return [ContentInfo.from_db_dict(dict(row)) for row in cursor]

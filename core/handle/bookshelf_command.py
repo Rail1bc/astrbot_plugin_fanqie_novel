@@ -22,7 +22,7 @@ class BookShelfCommandHandle:
 
     # ---------- 加书架 -----------
     @staticmethod
-    async def add_book2shelf(event: AstrMessageEvent, bookshelf: BookShelf):
+    async def add_book2shelf(event: AstrMessageEvent):
         """将书籍加入到书架 /加书架 <book_id>"""
         # 解析参数
         args = event.message_str.split()
@@ -30,26 +30,26 @@ class BookShelfCommandHandle:
             return event.plain_result("请提供书籍ID，格式：\n/加书架 <book_id>")
         book_id = args[1]
         # 操作
-        result = await BookShelfHandle.add_book2shelf(book_id, bookshelf)
+        result = await BookShelfHandle.add_book2shelf(book_id)
         return event.plain_result(result)
 
     # ----------- 删除书籍 ------------
     @staticmethod
-    def remove_book(event: AstrMessageEvent, bookshelf: BookShelf):
+    def remove_book(event: AstrMessageEvent):
         """删除书籍 /删书 <book_id>"""
         args = event.message_str.split()
         if (args is None) or (len(args) < 2):
             return event.plain_result("请提供书籍ID，格式：\n/删书 <book_id>")
         book_id = args[1]
-        return event.plain_result(bookshelf.DB.delete_book(book_id))
+        return event.plain_result(BookShelf.delete_book(book_id))
 
     # ---------- 更新书架 ------------
     @staticmethod
-    async def update_bookshelf(event: AstrMessageEvent, bookshelf: BookShelf):
+    async def update_bookshelf(event: AstrMessageEvent):
         """更新书架内容 /更新书架 [book_id]"""
         args = event.message_str.split()
         book_id = args[1] if len(args) > 1 else None
-        result = await bookshelf.update_book(book_id)
+        result = await BookShelf.update_book(book_id)
         return event.plain_result(result)
 
     # ---------- 展示书架 -----------
@@ -69,9 +69,9 @@ class BookShelfCommandHandle:
         if (args is None) or (len(args) < 2):
             return event.plain_result("请提供书籍ID，格式：\n/看目录 <book_id> [起始|1]")
         book_id = args[1]
-        page = int(args[2]) if len(args) > 2 and args[2].isdigit() else 1
+        offset = int(args[2]) if len(args) > 2 and args[2].isdigit() else 1
         limit = int(args[3] if len(args) > 3 and args[2].isdigit() else 100)
-        result = await BookShelfHandle.show_book_toc(book_id,bookshelf,page,limit)
+        result = BookShelf.get_book(book_id).toc_to_str(offset, limit)
         return event.plain_result(result)
 
     # --------- 辅助方法

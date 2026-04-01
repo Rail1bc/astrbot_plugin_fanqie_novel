@@ -1,136 +1,25 @@
-from dataclasses import dataclass, field
 from typing import Optional, Any, Dict, List
 
+from .bookRepository import BookRepository
+from .book_info import BookInfo, ChapterInfo, ContentInfo
 from ...botomato_api.botomato_api import BotomatoAPI
 
-# ------------ 数据类 ------------
-@dataclass
-class BookInfo:
-
-    book_id: str    # 书籍 ID
-    book_name: str  # 书名
-    alias_name: str # 别名
-    original_book_name: str # 原书名
-    author: str     # 作者
-    abstract: str = ""  # 简介
-    word_number: Optional[int] = None   # 字数
-    serial_count: Optional[int] = None  # 章节数
-    read_cnt_text: str = ""  # 在读人数
-    score: Optional[float] = None   # 评分
-    raw: Dict[str, Any] = field(default_factory=dict)   # 原始数据
-
-    @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "BookInfo":
-        if data is None:
-            raise ValueError("data is required")
-
-        book_id = data.get("book_id")
-        book_name = data.get("book_name")
-        alias_name = data.get("alias_name") or data.get("book_flight_alias_name")
-        original_book_name = data.get("original_book_name")
-        author = data.get("author")
-        abstract = data.get("abstract")
-        word_number = data.get("word_number")
-        serial_count = data.get("serial_count")
-        read_cnt_text = data.get("read_cnt_text")
-        score = data.get("score")
-
-        return cls(
-            book_id=book_id,
-            book_name=book_name,
-            alias_name=alias_name,
-            original_book_name=original_book_name,
-            author=author,
-            abstract=abstract,
-            word_number=word_number,
-            serial_count=serial_count,
-            read_cnt_text=read_cnt_text,
-            score=score,
-            raw=data,
-        )
-    @classmethod
-    def from_dict_list(cls, data: List[dict]) -> List["BookInfo"]:
-        return [BookInfo.from_dict(data) for data in data]
-
-@dataclass
-class ChapterInfo:
-    item_id: str
-    version: str
-    title: str
-    volume_name: str
-    raw: Dict[str, Any] = field(default_factory=dict)   # 原始数据
-
-    @classmethod
-    def from_dict(cls, data: dict) -> "ChapterInfo":
-        item_id = data.get("item_id")
-        version = data.get("version")
-        title = data.get("title")
-        volume_name = data.get("volume_name")
-        return cls(
-            item_id=item_id,
-            version=version,
-            title=title,
-            volume_name=volume_name,
-            raw=data,
-        )
-    @classmethod
-    def from_dict_list(cls, data: List[dict]) -> List["ChapterInfo"]:
-        return [ChapterInfo.from_dict(data) for data in data]
-
-@dataclass
-class ContentInfo:
-    item_id: str
-    version: str
-    title: str
-    content: str
-    raw: Dict[str, Any] = field(default_factory=dict)
-
-    @classmethod
-    def from_api_dict(cls, chapter: ChapterInfo, data: dict,) -> "ContentInfo":
-        title = data.get("title")
-        content = data.get("content")
-        return cls(
-            item_id=chapter.item_id,
-            version=chapter.version,
-            title=title,
-            content=content,
-            raw=data,
-        )
-    @classmethod
-    def from_db_dict(cls, data: dict) -> "ContentInfo":
-        item_id = data.get("item_id")
-        version = data.get("version")
-        title = data.get("title")
-        content = data.get("content")
-        suffix = "\\n 为保证服务质量，免费用户请不要下书！或前往网站赞助后刷新隐藏该提示(赞助用户一天可下载一万章)"
-        if content.endswith(suffix):
-            content = content[:-len(suffix)]
-        content = content.replace("</p>", "\n")
-        return cls(
-            item_id=item_id,
-            version=version,
-            title=title,
-            content=content,
-            raw=data,
-        )
-
-    @classmethod
-    def from_dict_list(cls, data: List[dict]) -> List["ContentInfo"]:
-        return [ContentInfo.from_db_dict(data) for data in data]
-
-# ------------ 书籍类 ------------
 
 class Book:
     """
-    Book 持有 BookInfo。
-    可能持有 List[ChapterInfo] 和 List[ContentInfo],
-    当前实现为一个轻量包装：提供基础行为方法
+    Book 书籍类
     """
 
-    def __init__(self, info: BookInfo):
+    def __init__(
+            self, info: BookInfo,
+            toc: List[ChapterInfo] = [],
+            chapters: List[ContentInfo] = [],
+            bookmark: int = 0
+    ) -> None:
         self.info = info
-        self.chapter_list: Optional[List[ChapterInfo]] = []
-        self.content_list: Optional[List[ContentInfo]] = []
+        self.chapter_list: Optional[List[ChapterInfo]] = toc
+        self.content_list: Optional[List[ContentInfo]] = chapters
+        self.bookmark = bookmark
 
     def __repr__(self) -> str:
         return f"<Book id={self.info.book_id!r} name={self.info.book_name!r} author={self.info.author!r}>"
@@ -145,7 +34,7 @@ class Book:
     @classmethod
     def list_from_dict(cls, data_list: Optional[List[dict[str, Any]]]) -> List["Book"]:
         """通过数据构造 List[Book]"""
-        return [cls(info) for info in BookInfo.from_dict_list(data_list)]
+        return [Book.from_dict(data) for data in data_list]
 
     # -------- 通过网络拉取 -----------
     @classmethod
@@ -157,6 +46,7 @@ class Book:
         except Exception as e:
             raise TypeError(f"构造书籍失败:\n{e}") from e
         return cls(BookInfo.from_dict(book_data))
+
 
     # ----------- 实例方法 -----------
     # ----------- 更新 ------------
@@ -222,11 +112,11 @@ class Book:
                 self.content_list[i] = ContentInfo.from_api_dict(chapter, data)
         return f"《{self.info.book_name}》章节正文拉取成功"
 
-    # ---------- 实例方法 ---------------
+    # ---------- 查询方法 ---------------
 
-    def book_info_to_str(self) -> str:
+    def info_to_str(self) -> str:
         """
-        将书籍信息 反序列化为 适合在聊天中展示的字符串
+        将书籍信息反序列化为 适合在聊天中展示的字符串
         """
         parts = []
         parts.append(f"《{self.info.book_name}》")
@@ -237,6 +127,49 @@ class Book:
         parts.append(self.info.abstract.strip())
         return "\n* ".join(parts) if parts else repr(self)
 
+    def toc_to_str(self, offset: int = 1, limit: int = -1) -> str:
+        """
+        将章节列表反序列化为 适合在聊天中展示的字符串
+        """
+        chapters = self.chapter_list[offset - 1:]
+        if limit != -1:
+            chapters = chapters[:limit]
+        return "章节列表:\n" + "\n".join([f"{offset + i}:{chapter.title}" for i, chapter in enumerate(chapters)])
+
+    def content_to_str(self) -> str:
+        """
+        阅读正文
+        """
+        if self.bookmark == 0:
+            return "需要先更新以拉取正文！"
+        content = self.content_list[self.bookmark - 1]
+        self.bookmark += 1
+        return f"{content.title}:\n{content.content}"
+
+    def set_bookmark(self, bookmark: int) :
+        self.bookmark = bookmark
+        return f"已将《{self.info.book_name}》的书签移动至{bookmark}"
 
 
+    # --------- 持久化存储方法 --------------
+    def save(self):
+        """将书籍信息保存"""
+        self.save_book_info()
+        self.save_toc()
+        self.save_chapters()
+        self.save_bookmark()
 
+    def save_book_info(self):
+        """保存书籍基础信息"""
+        BookRepository().sync_book_info(self.info)
+
+    def save_toc(self):
+        """保存书籍章节列表"""
+        BookRepository().sync_chapters(self.info.book_id, self.chapter_list)
+
+    def save_chapters(self):
+        """报错书籍正文内容"""
+        BookRepository().sync_content(self.info.book_id, self.content_list)
+
+    def save_bookmark(self):
+        """保存书籍书签位置"""
