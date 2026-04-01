@@ -136,7 +136,7 @@ class Book:
             chapters = chapters[:limit]
         return "章节列表:\n" + "\n".join([f"{offset + i}:{chapter.title}" for i, chapter in enumerate(chapters)])
 
-    def content_to_str(self) -> str:
+    def read(self) -> str:
         """
         阅读正文
         """
@@ -150,6 +150,9 @@ class Book:
         self.bookmark = bookmark
         return f"已将《{self.info.book_name}》的书签移动至{bookmark}"
 
+
+    def read_chapter(self, index: int):
+        return self.content_list[index - 1].to_str()
 
     # --------- 持久化存储方法 --------------
     def save(self):

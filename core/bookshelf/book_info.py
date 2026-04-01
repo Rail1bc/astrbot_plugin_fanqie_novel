@@ -115,3 +115,6 @@ class ContentInfo:
     @classmethod
     def from_dict_list(cls, data: List[dict]) -> List["ContentInfo"]:
         return [ContentInfo.from_db_dict(data) for data in data]
+
+    def to_str(self):
+        return f"{self.title}\n{self.content}"

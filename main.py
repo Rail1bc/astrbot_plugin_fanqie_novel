@@ -30,7 +30,7 @@ class BotomatoPlugin(Star):
         self.reading_book: Book | None = None
         self.gate = {"Botomato"}    # 总开关
         self.switch = {"Botomato_tool_status"}    # tool开关
-        self.bookshelf_tool = {"Botomato_tool_status", "search_novel", "add_novel2shelf", "look_novel_toc", "Botomato_take_book"}
+        self.bookshelf_tool = {"Botomato_tool_status", "search_book", "add_book2shelf", "look_book_toc", "remove_book4shelf", "Botomato_take_book"}
         self.take_tool = {"Botomato_take_book"}
         self.reading_tool = {"look_book", "look_toc", "read_book", "move_bookmark", "read_chapter"}
         self.set_enable(False)
@@ -97,7 +97,7 @@ class BotomatoPlugin(Star):
         return self.set_reading_book("on" if status else "off")
 
 
-    @filter.llm_tool(name="search_novel")
+    @filter.llm_tool(name="search_book")
     async def call_search_novel(self, event: AstrMessageEvent, keywords: str, page: int = 0) :
         """
         搜索小说基础信息(包括book_id、书名、简介等，不包括目录、正文)。
@@ -108,7 +108,7 @@ class BotomatoPlugin(Star):
         """
         return await BookShelfHandle.novel_search(keywords, page)
 
-    @filter.llm_tool(name="add_novel2shelf")
+    @filter.llm_tool(name="add_book2shelf")
     async def call_add_novel2shelf(self, event: AstrMessageEvent, book_id: str):
         """
         将小说加入书架。
@@ -118,7 +118,7 @@ class BotomatoPlugin(Star):
         """
         return await BookShelfHandle.add_book2shelf(book_id)
 
-    @filter.llm_tool(name="show_novel4shelf")
+    @filter.llm_tool(name="show_book4shelf")
     async def call_show_bookshelf(self, event: AstrMessageEvent, keywords: str = None):
         """
         查看书架藏书(包括book_id、书名、简介等)。
@@ -128,7 +128,7 @@ class BotomatoPlugin(Star):
         """
         return BookShelf.show_book(keywords)
 
-    @filter.llm_tool(name="look_novel_toc")
+    @filter.llm_tool(name="look_book_toc")
     async def call_look_novel_toc(self, event: AstrMessageEvent, book_id: str, offset: int = 1, limit: int = 100):
         """
         查看小说目录，只能查看书架内的小说。
@@ -139,6 +139,16 @@ class BotomatoPlugin(Star):
             limit (int): 选填 查询量，默认100
         """
         return BookShelf.get_book(book_id).toc_to_str(offset, limit)
+
+    @filter.llm_tool(name="remove_book4shelf")
+    async def call_remove_book4shelf(self, event: AstrMessageEvent, book_id: str):
+        """
+        从书架删除指定藏书
+
+        Args:
+            book_id (str): 必填 书籍ID
+        """
+        return BookShelf.delete_book(book_id)
 
     # -------- reading tool --------
 
@@ -156,9 +166,6 @@ class BotomatoPlugin(Star):
     async def look_book(self, event: AstrMessageEvent):
         """
         查看当前书籍的基础信息
-
-        Args:
-            无参数
         """
         return self.reading_book.info_to_str()
 
@@ -171,13 +178,33 @@ class BotomatoPlugin(Star):
             offset (int): 选填 起始章节，默认1
             limit (int): 选填 查询量，默认100
         """
-        return BookShelf.get_book(self.reading_book.info.book_id).toc_to_str(offset, limit)
-
+        return self.reading_book.toc_to_str(offset, limit)
 
     @filter.llm_tool(name="read_book")
-    @filter.llm_tool(name="move_bookmark")
-    @filter.llm_tool(name="read_chapter")
+    async def read_book(self, event: AstrMessageEvent):
+        """
+        自动接续进度阅读当前书籍，会自动移动书签，无需任何参数
+        """
+        return self.reading_book.read()
 
+    @filter.llm_tool(name="move_bookmark")
+    async def move_bookmark(self, event: AstrMessageEvent, index: int = 1):
+        """
+        移动书签到指定章节
+
+        Args:
+            index (int): 选填 章节序号，默认1
+        """
+
+    @filter.llm_tool(name="read_chapter")
+    async def read_chapter(self, event: AstrMessageEvent, index: int = 1):
+        """
+        阅读指定章节
+
+        Args:
+            index (int): 选填 章节序号，默认1
+        """
+        self.reading_book.read_chapter(index)
 
     def set_reading_book(self, book_id: str = ""):
         if not book_id:
@@ -219,6 +246,8 @@ class BotomatoPlugin(Star):
         for h in handlers:
             if h.handler_name not in self.gate:
                 h.enabled = self.enable
+        if self.enable:
+            self.set_tool_status("on")
         return f"{'启用' if self.enable else '禁用'} 🍅Botomato 书架！"
 
     async def initialize(self):
