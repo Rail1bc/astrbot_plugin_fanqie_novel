@@ -8,7 +8,7 @@ from pathlib import Path
 
 from astrbot.core.star.star_handler import star_handlers_registry
 
-from core.bookshelf.bookRepository import BookRepository
+from .core.bookshelf.bookRepository import BookRepository
 from .core.handle.bookshelf_handle import BookShelfHandle
 from .core.bookshelf.book import Book
 from .core.bookshelf.bookshelf import BookShelf

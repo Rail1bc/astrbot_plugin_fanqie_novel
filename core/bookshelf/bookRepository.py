@@ -1,7 +1,7 @@
 import os
 import sqlite3
 from contextlib import contextmanager
-from typing import List, Dict, Any
+from typing import List
 
 from .book_info import BookInfo, ChapterInfo, ContentInfo
 
