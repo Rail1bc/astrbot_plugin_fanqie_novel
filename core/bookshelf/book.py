@@ -144,10 +144,12 @@ class Book:
             return "需要先更新以拉取正文！"
         content = self.content_list[self.bookmark - 1]
         self.bookmark += 1
+        self.save_bookmark()
         return f"{content.title}:\n{content.content}"
 
     def set_bookmark(self, bookmark: int) :
         self.bookmark = bookmark
+        self.save_bookmark()
         return f"已将《{self.info.book_name}》的书签移动至{bookmark}"
 
 
@@ -176,3 +178,4 @@ class Book:
 
     def save_bookmark(self):
         """保存书籍书签位置"""
+        BookRepository().update_default_bookmark(self.info.book_id, self.bookmark)

@@ -78,4 +78,5 @@ class BookShelf:
         info = br.get_book_info(book_id)
         toc = br.get_all_chapters(book_id)
         contents = br.get_content_list(book_id)
-        return Book(info, toc, contents)
+        bookmark = br.get_default_bookmark(book_id)
+        return Book(info, toc, contents, bookmark)
