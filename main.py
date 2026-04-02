@@ -1,3 +1,4 @@
+from multiprocessing.util import debug
 from os import name
 
 from astrbot.api.event import filter, AstrMessageEvent, MessageEventResult
@@ -195,6 +196,7 @@ class BotomatoPlugin(Star):
         Args:
             index (int): 选填 章节序号，默认1
         """
+        return self.reading_book.set_bookmark(index)
 
     @filter.llm_tool(name="read_chapter")
     async def read_chapter(self, event: AstrMessageEvent, index: int = 1):
@@ -204,7 +206,7 @@ class BotomatoPlugin(Star):
         Args:
             index (int): 选填 章节序号，默认1
         """
-        self.reading_book.read_chapter(index)
+        return self.reading_book.read_chapter(index)
 
     def set_reading_book(self, book_id: str = ""):
         if not book_id:
@@ -246,6 +248,7 @@ class BotomatoPlugin(Star):
         for h in handlers:
             if h.handler_name not in self.gate:
                 h.enabled = self.enable
+                logger.debug(f"设置工具 {h.handler_name} 状态为 {'启用' if self.enable else '禁用'}")
         if self.enable:
             self.set_tool_status("on")
         return f"{'启用' if self.enable else '禁用'} 🍅Botomato 书架！"
