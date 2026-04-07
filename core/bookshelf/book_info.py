@@ -1,6 +1,6 @@
 from dataclasses import dataclass, field
 from typing import Optional, Any, Dict, List
-
+import re
 
 @dataclass
 class BookInfo:
@@ -91,7 +91,7 @@ class ContentInfo:
             item_id=chapter.item_id,
             version=chapter.version,
             title=title,
-            content=content,
+            content=ContentInfo.remove_tags(content),
             raw=data,
         )
     @classmethod
@@ -99,7 +99,7 @@ class ContentInfo:
         item_id = data.get("item_id")
         version = data.get("version")
         title = data.get("title")
-        content = data.get("content")
+        content = ContentInfo.remove_tags(data.get("content"))
         suffix = "\\n 为保证服务质量，免费用户请不要下书！或前往网站赞助后刷新隐藏该提示(赞助用户一天可下载一万章)"
         if content.endswith(suffix):
             content = content[:-len(suffix)]
@@ -111,6 +111,14 @@ class ContentInfo:
             content=content,
             raw=data,
         )
+
+    @classmethod
+    def remove_tags(cls, content: str) -> str:
+        # 去除所有HTML/XML标签
+        text = re.sub(r'<[^>]+>', '', content)
+        # 可选：清理多余的空白行（将多个连续换行合并为单个）
+        text = re.sub(r'\n\s*\n', '\n', text)
+        return text.strip()
 
     @classmethod
     def from_dict_list(cls, data: List[dict]) -> List["ContentInfo"]:
