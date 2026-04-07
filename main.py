@@ -7,6 +7,8 @@ from astrbot.api import logger
 from astrbot.core.utils.astrbot_path import get_astrbot_data_path
 from pathlib import Path
 
+from astrbot.core.provider.entities import ProviderRequest
+from astrbot.core.provider.func_tool_manager import FunctionToolManager
 from astrbot.core.star.star_handler import star_handlers_registry
 
 from .core.bookshelf.bookRepository import BookRepository
@@ -95,6 +97,11 @@ class BotomatoPlugin(Star):
         Args:
             status (bool): 必填 开关状态，true表示开启工具，false表示关闭工具
         """
+        pr = event.get_extra("provider_request")
+        if pr is None:
+            # 为什么会没有？subagent调用的？
+            logger.warning("未获取到 provider_request，无法正确设置工具状态")
+            return "未获取到 provider_request，无法正确设置工具状态，需要明确向用户报告该错误！"
         return self.set_tool_status("on" if status else "off")
 
 
@@ -186,7 +193,7 @@ class BotomatoPlugin(Star):
         """
         自动接续进度阅读当前书籍，会自动移动书签，无需任何参数
         """
-        return self.reading_book.read()
+        return await self.reading_book.read()
 
     @filter.llm_tool(name="move_bookmark")
     async def move_bookmark(self, event: AstrMessageEvent, index: int = 1):
@@ -218,6 +225,7 @@ class BotomatoPlugin(Star):
         return f"已取出书籍《{self.reading_book.info.book_name}》\n{result}"
 
     def set_tool_status(self, status: str):
+        tool_mgr = self.context.get_llm_tool_manager()
         handlers = star_handlers_registry.get_handlers_by_module_name(self.module_path)
         if status == "off":
             for h in handlers:

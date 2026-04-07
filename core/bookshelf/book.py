@@ -14,7 +14,7 @@ class Book:
             self, info: BookInfo,
             toc: List[ChapterInfo] = [],
             chapters: List[ContentInfo] = [],
-            bookmark: int = 0
+            bookmark: int = 1
     ) -> None:
         self.info = info
         self.chapter_list: Optional[List[ChapterInfo]] = toc
@@ -136,12 +136,24 @@ class Book:
             chapters = chapters[:limit]
         return "章节列表:\n" + "\n".join([f"{offset + i}:{chapter.title}" for i, chapter in enumerate(chapters)])
 
-    def read(self) -> str:
+    async def read(self) -> str:
         """
         阅读正文
         """
-        if self.bookmark == 0:
-            return "需要先更新以拉取正文！"
+        # 如果书签位置超过章节列表长度，检查是对应章节是否存在
+        if len(self.content_list) < self.bookmark :
+            if len(self.chapter_list) < self.bookmark :
+                return f"已经阅读到最新章！作者还没更新！"
+            else :
+                api = await BotomatoAPI.get_instance()
+                chapter = self.chapter_list[self.bookmark - 1]
+                try:
+                    data = await api.chapter(chapter.item_id)
+                except Exception as e:
+                    return f"拉取新章节《{self.info.book_name}》 {self.bookmark}, {chapter.title} 时失败:\n{e}"
+                self.content_list.append(ContentInfo.from_api_dict(chapter, data))
+                self.save_chapters()
+
         content = self.content_list[self.bookmark - 1]
         self.bookmark += 1
         self.save_bookmark()

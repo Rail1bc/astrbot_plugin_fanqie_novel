@@ -38,11 +38,12 @@ class BookShelf:
         """
         rb = BookRepository()
         if book_id is None:
-            books = rb.get_all_books()
+            books = rb.get_all_book_id()
             result = []
             for book in books:
+                book = await Book.from_bookid(book)
                 result.append(await book.update())
-                book.save(book)
+                book.save()
             result = "\n--------\n".join(result)
             return f"已更新书架全部书籍\n更新情况：\n{result}"
         try:
